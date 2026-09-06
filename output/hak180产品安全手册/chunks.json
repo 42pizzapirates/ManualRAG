@@ -98,14 +98,14 @@
         "parent_title": "## 设备"
     },
     {
-        "content": "![烫金机内部高温警告：请勿触摸灰色区域，注意灼伤风险。](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/f3349cded08d6686a93d0a81b9a64ec1e50d9a82cbb88541b37027f085813a15.jpg)  \n儎⑟ഴḽ䆜઀ᛞ࠽व䀜᪮儎⑟Ⲻ䇴༽䜞ԬȾ",
+        "content": "![安全警告图示：高温部件及手指夹伤风险区域。](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/f3349cded08d6686a93d0a81b9a64ec1e50d9a82cbb88541b37027f085813a15.jpg)  \n儎⑟ഴḽ䆜઀ᛞ࠽व䀜᪮儎⑟Ⲻ䇴༽䜞ԬȾ",
         "title": "## 设备_10",
         "file_title": "hak180产品安全手册",
         "part": 10,
         "parent_title": "## 设备"
     },
     {
-        "content": "![清洁打印机内部（图：手在设备内部操作，需先拔掉电源线）](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/501bb8d2d681e4502d87badb15a68939eadfa086d309c3599f1c36b0bc559177.jpg)",
+        "content": "![操作设备内部时，注意避免手指接触加热或电极区域。](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/501bb8d2d681e4502d87badb15a68939eadfa086d309c3599f1c36b0bc559177.jpg)",
         "title": "## 设备_11",
         "file_title": "hak180产品安全手册",
         "part": 11,
@@ -147,7 +147,7 @@
         "parent_title": "## 电源线"
     },
     {
-        "content": "## 设备\n\n•\t将本设备放置在平整、水平且稳定的表面上（如桌面），避免震动和冲击。\n\n•\t将本设备放置在通风良好的环境中。\n\n•\t为了防止人员受伤，请谨慎操作，避免将手指放置在图中所示的区域中。\n\n![请勿将手指放在设备内部图示区域，以防夹伤。](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/c61a7f4e923881679f747508ae309c39dc221685344b068009256b1b3a40cc00.jpg)\n\n![请勿将手指放置在图中所示区域，以免受伤。](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/5067b2891ca4f761e2874921e0eb433aa742afbf38ca8dc509afecbf0aa6a6b5.jpg)\n",
+        "content": "## 设备\n\n•\t将本设备放置在平整、水平且稳定的表面上（如桌面），避免震动和冲击。\n\n•\t将本设备放置在通风良好的环境中。\n\n•\t为了防止人员受伤，请谨慎操作，避免将手指放置在图中所示的区域中。\n\n![禁止将手指伸入设备内部图示区域，以防受伤。](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/c61a7f4e923881679f747508ae309c39dc221685344b068009256b1b3a40cc00.jpg)\n\n![禁止将手指放在图示区域](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/5067b2891ca4f761e2874921e0eb433aa742afbf38ca8dc509afecbf0aa6a6b5.jpg)\n",
         "title": "## 设备",
         "file_title": "hak180产品安全手册",
         "part": 1,
@@ -168,7 +168,7 @@
         "parent_title": "## 为设备选择一个安全的位置"
     },
     {
-        "content": "![搬运设备时应双手托底，切勿抓握进纸托板或出纸盒。](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/cc5ee1ac24ebb2707d40dc7a234a8b243f55f5bf08fabc683859be6fdf096ffa.jpg)",
+        "content": "![搬运设备的正确与错误方式：应双手托住设备底部，勿抓进纸托板或出纸盒。](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/cc5ee1ac24ebb2707d40dc7a234a8b243f55f5bf08fabc683859be6fdf096ffa.jpg)",
         "title": "## 为设备选择一个安全的位置_2",
         "file_title": "hak180产品安全手册",
         "part": 2,
@@ -182,7 +182,7 @@
         "parent_title": "## 为设备选择一个安全的位置"
     },
     {
-        "content": "![禁止将设备放置于桌面边缘且出纸盒打开。](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/8e839864036a7326885565163d99117ea943ecd29a656c85e7aa4052a9b9d28d.jpg)\n\n“重要事项”表示可能导致财产损失或本设备功能丧失的潜在危险情况。",
+        "content": "![禁止将设备置于桌边且出纸盒打开，以防跌落损坏。](http://127.0.0.1:9000/rag-zhiku/upload-images/hak180产品安全手册/8e839864036a7326885565163d99117ea943ecd29a656c85e7aa4052a9b9d28d.jpg)\n\n“重要事项”表示可能导致财产损失或本设备功能丧失的潜在危险情况。",
         "title": "## 为设备选择一个安全的位置_4",
         "file_title": "hak180产品安全手册",
         "part": 4,
