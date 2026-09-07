@@ -81,23 +81,24 @@ def step_2_import_milvus(state:ImportGraphState):
             index_params=index_params
         )
 
-        # 5. 写入数据
-        # 5.1 删除原数据
-        item_name = state['item_name']
-        milvus_client.delete(collection_name=milvus_config.chunks_collection,
-                             filter=f'item_name=="{escape_milvus_string(item_name)}"')
+
+    # 5. 写入数据（无论集合是否新建，每次都要执行：先删旧数据，再插入新数据）
+    # 5.1 删除原数据（按 item_name 幂等清理，保证重复导入不产生脏数据）
+    item_name = state['item_name']
+    milvus_client.delete(collection_name=milvus_config.chunks_collection,
+                         filter=f'item_name=="{escape_milvus_string(item_name)}"')
 
 
-        # 5.2 写入数据
-        result = milvus_client.insert(
-            collection_name=milvus_config.chunks_collection,
-            data=state['chunks']
-        )
+    # 5.2 写入数据
+    result = milvus_client.insert(
+        collection_name=milvus_config.chunks_collection,
+        data=state['chunks']
+    )
 
-        insert_count  = result.get('insert_count',0)
-        logger.info(f'插入数据成功！，总条数：{insert_count}')
-        ids = result.get('ids',[])
-        logger.info(f'插入主键回显：{ids}')
+    insert_count  = result.get('insert_count',0)
+    logger.info(f'插入数据成功！，总条数：{insert_count}')
+    ids = result.get('ids',[])
+    logger.info(f'插入主键回显：{ids}')
 
 
 @ node_log('node_import_milvus')
