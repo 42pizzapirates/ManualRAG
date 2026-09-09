@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 # 导入pymongo核心模块：MongoDB原生Python驱动，实现数据库连接和操作
 # ASCENDING：表示升序排序，用于MongoDB索引和查询排序
-from pymongo import MongoClient, ASCENDING
+from pymongo import MongoClient, ASCENDING,DESCENDING
 # 导入bson的ObjectId：MongoDB默认的主键类型，用于唯一标识文档
 from bson import ObjectId
 # 导入dotenv模块：用于从.env文件加载环境变量，避免硬编码敏感配置（如MongoDB连接地址）
@@ -208,7 +208,7 @@ def get_recent_messages(session_id: str, limit: int = 10) -> List[Dict[str, Any]
         # find(query)：获取符合条件的游标（惰性加载，不立即查询）
         # sort("ts", ASCENDING)：按ts字段升序（从旧到新），适配LLM上下文顺序
         # limit(limit)：限制返回的最大条数
-        cursor = mongo_tool.chat_message.find(query).sort("ts", ASCENDING).limit(limit)
+        cursor = mongo_tool.chat_message.find(query).sort("ts", DESCENDING).limit(limit)
         # 将游标转为列表，触发实际数据库查询，获取所有符合条件的文档
         messages = list(cursor)
         # 返回查询结果列表

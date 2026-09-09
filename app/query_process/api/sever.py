@@ -14,7 +14,7 @@ from app.query_process.agent.state import create_query_default_state
 from app.utils.task_utils import *
 from app.utils.sse_utils import create_sse_queue, SSEEvent, sse_generator
 from app.clients.mongo_history_utils import *
-from app.query_process.agent.main_graph import query_app
+from app.query_process.agent.main_graph import query_graph
 
 # 定义fastapi对象
 app = FastAPI(title='query service',description='掌柜智库查询服务')
@@ -119,7 +119,6 @@ class QueryRequest(BaseModel):
 """
 
 
-# 同步方法
 def run_query_graph(session_id:str,query:str,is_stream:bool):
     """执行main_graph"""
     try:
@@ -137,7 +136,7 @@ def run_query_graph(session_id:str,query:str,is_stream:bool):
                                         is_stream = is_stream
                                        )
         )
-        query_app.invoke(initial_state)
+        query_graph.invoke(initial_state)
         update_task_status(session_id,TASK_STATUS_COMPLETED,is_stream)
 
 
@@ -180,7 +179,7 @@ async def query(query_request:QueryRequest,backgroundtasks:BackgroundTasks):
         # 等待结束以后，返回结果
         return {
             'message':'处理完成！',
-            'seesion_id':session_id,
+            'session_id':session_id,
             'answer':answer,
             'done_list':get_done_task_list(session_id)
         }
@@ -194,6 +193,39 @@ async def stream_query_result(session_id:str,request:Request):
         # 返回结果类型
         media_type='text/event-stream'
     )
+
+# 接口五 查询历史聊天记录
+# /history/{session_id}?limit=xx 可能传
+@app.get('/history/{session_id}')
+def get_history(session_id:str,limit:int=10):
+    records = get_recent_messages(session_id,limit=limit)
+    items = []
+    for r in records:
+        items.append({
+            'id':str(r.get('_id')) if r.get('_id') is not None else "",
+            'session_id':r.get('session_id',''),
+            'role':r.get('role',''),
+            'text':r.get('text',''),
+            'rewritten_query':r.get('rewritten_query',''),
+            'item_names':r.get('item_names',[]),
+            'ts':r.get('ts')
+        })
+
+    return {
+        'session_id':session_id,
+        'items':items
+    }
+
+# 接口六：清空历史聊天记录
+# /history/{session_id} delete
+@app.delete('/history/{session_id}')
+def delete_history(session_id:str):
+    # 删除
+    delete_count = clear_history(session_id)
+    return{
+        'message':f'删除:{session_id}会话对应的聊天记录成功！',
+        'delete_count':delete_count
+    }
 
 if __name__ == "__main__":
     uvicorn.run(
