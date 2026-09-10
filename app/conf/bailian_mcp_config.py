@@ -14,5 +14,5 @@ class McpConfig:
 
 mcp_config = McpConfig(
     mcp_base_url=os.getenv("MCP_DASHSCOPE_BASE_URL"),
-    api_key=os.getenv("OPENAI_API_KEY")
+    api_key=os.getenv("MCP_ALIYUN_API")
 )
