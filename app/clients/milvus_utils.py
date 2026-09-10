@@ -129,7 +129,7 @@ def create_hybrid_search_requests(dense_vector, sparse_vector, dense_params=None
     """
     # 稠密向量默认搜索参数：余弦相似度（COSINE），适配BGE-M3稠密向量并与建库参数保持一致
     if dense_params is None:
-        dense_params = {"metric_type": "COSINE"}
+        dense_params = {"metric_type": "IP"}
     # 稀疏向量默认搜索参数：内积（IP），适配BGE-M3稀疏向量
     if sparse_params is None:
         sparse_params = {"metric_type": "IP"}
