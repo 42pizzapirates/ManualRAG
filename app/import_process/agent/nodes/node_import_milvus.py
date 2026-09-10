@@ -35,9 +35,12 @@ def step_2_import_milvus(state:ImportGraphState):
     # 2. 判断是否存在，不存在进行创建流程
     if not milvus_client.has_collection(collection_name=milvus_config.chunks_collection):
         # 创建schema field
+        # 关闭动态字段：动态字段会产生隐藏的 JSON 字段($meta)，Milvus 3.0 的 JSON Shredding 会为其
+        # 生成 shredding_data 文件（v3.0.0 存在路径重复拼接的缺陷，重启后段加载失败）。本集合的
+        # 所有字段均已显式声明，无需动态字段。
         schema = milvus_client.create_schema(
             auto_id = True,
-            enable_dynamic_field = True
+            enable_dynamic_field = False
         )
 
         # 添加字段

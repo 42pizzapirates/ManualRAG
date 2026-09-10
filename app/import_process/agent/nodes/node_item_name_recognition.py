@@ -115,9 +115,12 @@ def step_4_insert_milvs(item_name,file_title,dense_vector,sparse_vector):
 
     if not milvus_client.has_collection(collection_name=milvus_config.item_name_collection):
         # 2. 创建表对应shchema[有哪些列和列的类型描述]
+        # 关闭动态字段：动态字段会产生隐藏的 JSON 字段($meta)，Milvus 3.0 的 JSON Shredding 会为其
+        # 生成 shredding_data 文件（v3.0.0 存在路径重复拼接的缺陷，重启后段加载失败）。本集合的
+        # 所有字段均已显式声明，无需动态字段。
         schema = milvus_client.create_schema(
             auto_id = True, # id 数字 自增长
-            enable_dynamic_field = True # 可以传入未声明的字段
+            enable_dynamic_field = False # 不接受未声明的字段
         )
 
         schema.add_field(field_name='pk',datatype=DataType.INT64,is_primary=True,auto_id=True)
