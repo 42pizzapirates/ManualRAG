@@ -298,7 +298,7 @@ if __name__ == "__main__":
     # 模拟输入状态
     mock_state = {
         "session_id": "test_session_001",
-        "original_query": "烫金机和华为手机以及苹果手机好不好用?",
+        "original_query": "华为网关",
         "is_stream": False
     }
 
