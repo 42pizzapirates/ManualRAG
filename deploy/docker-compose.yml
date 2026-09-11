@@ -1,0 +1,107 @@
+# RAG 知识库 - 云端基础服务编排
+# 部署位置：云服务器 /opt/rag-zhiku/
+# 启动：docker compose up -d
+#
+# 端口暴露原则：只映射应用真正需要的端口，其余走容器内网。
+#   9000  MinIO API      应用上传/读取图片
+#   9001  MinIO 控制台   人工排查用，不需要可在安全组里关掉
+#   27017 MongoDB        应用读写会话历史
+#   19530 Milvus         应用向量检索
+#   2379  etcd           【不映射】仅容器内网，公网暴露等于把 Milvus 元数据敞开
+#   9091  Milvus 健康检查 【不映射】healthcheck 在容器内 localhost 访问即可
+
+name: rag-zhiku
+
+services:
+  etcd:
+    container_name: rag-etcd
+    image: quay.io/coreos/etcd:v3.5.23
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - ./volumes/etcd:/etcd
+    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
+  minio:
+    container_name: rag-minio
+    # latest 每次拉取可能拿到不同版本，首次验证通过后建议固定成具体 RELEASE tag
+    image: minio/minio:latest
+    environment:
+      # 新版 MinIO 已弃用 MINIO_ACCESS_KEY/SECRET_KEY，改用 ROOT_USER/ROOT_PASSWORD
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./volumes/minio:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
+  mongodb:
+    container_name: rag-mongo
+    image: mongo:7
+    environment:
+      # 首次初始化时创建 admin 库的 root 账号，并执行 mongo-init.js
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB_NAME}
+      # 给 mongo-init.js 读，用于创建只对业务库有权限的应用账号
+      MONGO_APP_USER: ${MONGO_APP_USER}
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD}
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./volumes/mongo:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    command: ["--auth"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping:1})", "--username", "${MONGO_APP_USER}", "--password", "${MONGO_APP_PASSWORD}", "--authenticationDatabase", "${MONGO_DB_NAME}"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
+  milvus:
+    container_name: rag-milvus
+    # 必须与应用侧 pymilvus 3.0.1 对应的版本保持一致，不要随意升级
+    image: milvusdb/milvus:v3.0.0
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      # 与本地部署保持一致：数据落在本地卷，不依赖 MinIO
+      COMMON_STORAGETYPE: local
+      DEPLOY_MODE: STANDALONE
+    volumes:
+      # 注意：容器以 uid 999(milvus) 运行，宿主机目录必须属于 999:999，否则启动即 panic: failed to mkdir
+      # 首次部署或重建数据卷后执行：sudo chown -R 999:999 ./volumes/milvus
+      - ./volumes/milvus:/var/lib/milvus
+      # 覆盖默认配置，开启鉴权（embedded etcd 不支持鉴权，故必须用上面的独立 etcd）
+      - ./user.yaml:/milvus/configs/user.yaml
+    ports:
+      - "19530:19530"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+    depends_on:
+      - etcd
+    restart: unless-stopped

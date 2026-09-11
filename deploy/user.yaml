@@ -1,0 +1,6 @@
+# 覆盖 Milvus 默认配置，挂载到容器内 /milvus/configs/user.yaml
+# 与本地 standalone.bat 生成的 user.yaml 是同一个覆盖机制
+common:
+  security:
+    # 开启鉴权后，root 用户初始密码是 Milvus，首次启动后必须立即修改
+    authorizationEnabled: true

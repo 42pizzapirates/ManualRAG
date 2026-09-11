@@ -1,0 +1,5 @@
+# compose 实际使用的变量文件，含密码，绝不入库
+.env
+
+# 容器数据卷（etcd/minio/mongo/milvus 的落盘数据）
+volumes/
