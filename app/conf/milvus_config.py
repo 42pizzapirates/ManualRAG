@@ -13,6 +13,8 @@ load_dotenv()
 @dataclass
 class MilvusConfig:
     milvus_url: str          # Milvus服务端连接地址
+    milvus_user: str         # Milvus认证用户名（服务端开启authorizationEnabled后必填）
+    milvus_password: str     # Milvus认证密码（同上）
     chunks_collection: str   # 存储切片的集合名称
     entity_name_collection: str  # 预留-实体名称集合
     item_name_collection: str    # 存储文档对应实体类的集合名称
@@ -20,6 +22,8 @@ class MilvusConfig:
 # 实例化Milvus配置对象（和其他配置对象命名风格统一）
 milvus_config = MilvusConfig(
     milvus_url=os.getenv("MILVUS_URL"),
+    milvus_user=os.getenv("MILVUS_USER"),
+    milvus_password=os.getenv("MILVUS_PASSWORD"),
     chunks_collection=os.getenv("CHUNKS_COLLECTION"),
     entity_name_collection=os.getenv("ENTITY_NAME_COLLECTION"),
     item_name_collection=os.getenv("ITEM_NAME_COLLECTION")

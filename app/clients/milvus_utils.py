@@ -22,8 +22,12 @@ def get_milvus_client():
             if not milvus_uri:
                 logger.error("Milvus客户端连接失败：缺少MILVUS_URL环境变量配置")
                 return None
-            # 初始化Milvus客户端
-            _milvus_client = MilvusClient(uri=milvus_uri)
+            # 初始化Milvus客户端（服务端未开启认证时，凭证为空即可正常连接）
+            _milvus_client = MilvusClient(
+                uri=milvus_uri,
+                user=milvus_config.milvus_user or "",
+                password=milvus_config.milvus_password or ""
+            )
             logger.info("Milvus客户端连接成功")
         return _milvus_client
     except Exception as e:
