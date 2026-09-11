@@ -141,7 +141,8 @@ def run_query_graph(session_id:str,query:str,is_stream:bool):
 
 
         # final事件最后推送，因为其会关闭本次传输流
-        image_urls = ["http://www.baidu.com/img/bd_logo.png", "http://47.94.86.115:9000/knowledge-base-files/upload-images/hak180%E4%BA%A7%E5%93%81%E5%AE%89%E5%85%A8%E6%89%8B%E5%86%8C/66ee4447cdd36e786369677a3a3aa8c36cedbfd2cdc10dde42ad9da98edefeab.jpg"]
+        # 图片URL暂未从检索结果中带出，先留空（原先写死的演示地址指向旧服务器和旧桶名，已移除）
+        image_urls = []
         push_to_session(
             session_id,
             SSEEvent.FINAL,
