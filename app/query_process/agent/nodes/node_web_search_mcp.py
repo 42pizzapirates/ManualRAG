@@ -104,4 +104,4 @@ if __name__ == '__main__':
     # 验证结果（只打印摘要，搜索结果原文含非GBK字符，直接打印会抛UnicodeEncodeError）
     print("测试结果:")
     print(f"查询内容: {test_state.get('rewritten_query')}")
-    print(f"联网搜索返回条数: {len(result_state.get('web_search_docs', []))}")
+    print(f"联网搜索返回条数: {result_state.get('web_search_docs', [])}")
