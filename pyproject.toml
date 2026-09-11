@@ -30,4 +30,5 @@ dependencies = [
     "transformers>=4.57.6",
     "openai-agents>=0.4.2",
     "requests>=2.32.5",
+    "dashscope>=1.27.4",
 ]
