@@ -16,14 +16,17 @@ class MinIOConfig:
     bucket_name: str # MinIO默认存储桶名（知识库文件专用）
     minio_img_dir: str #Minio存储图片的文件夹
     minio_secure: bool # 是否使用ssl加密 http 还是 https
-
+    public_base_url: str # 图片对外访问基址（含scheme，用于拼接回显URL）
 
 # 实例化MinIO配置对象，自动从.env读取配置并绑定
+# 图片回显地址默认跟随endpoint，换域名/HTTPS时用MINIO_PUBLIC_BASE_URL覆盖即可
+_minio_endpoint = os.getenv("MINIO_ENDPOINT")
 minio_config = MinIOConfig(
-    endpoint=os.getenv("MINIO_ENDPOINT"),
+    endpoint=_minio_endpoint,
     access_key=os.getenv("MINIO_ACCESS_KEY"),
     secret_key=os.getenv("MINIO_SECRET_KEY"),
     bucket_name=os.getenv("MINIO_BUCKET_NAME"),
     minio_img_dir=os.getenv("MINIO_IMG_DIR"),
-    minio_secure=os.getenv("MINIO_SECURE") == "True"
+    minio_secure=os.getenv("MINIO_SECURE") == "True",
+    public_base_url=os.getenv("MINIO_PUBLIC_BASE_URL") or f"http://{_minio_endpoint}"
 )

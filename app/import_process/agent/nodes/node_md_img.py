@@ -246,8 +246,8 @@ def step_4_imgs_upload_replace(imgs_context_list,img_summaries_dict,md_content,s
                 file_path=img_path,
                 content_type=mimetypes.guess_type(img_name)[0]
             )
-            # 拼接图片的网络地址，端点+桶+对象名
-            img_url = (f'http://{minio_config.endpoint}/{minio_config.bucket_name}{minio_config.minio_img_dir}/{stem}/{img_name}')
+            # 拼接图片的网络地址，对外基址+桶+对象名（基址来自配置，换域名/HTTPS时无需改代码）
+            img_url = (f'{minio_config.public_base_url}/{minio_config.bucket_name}{minio_config.minio_img_dir}/{stem}/{img_name}')
             logger.debug(f'图片：{img_name}上传成功！回显地址：{img_url}')
             # 存储图片和对应网络地址对
             img_url_dict[img_name] = img_url
