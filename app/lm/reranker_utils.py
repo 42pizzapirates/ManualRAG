@@ -12,3 +12,4 @@ def get_reranker_model():
             use_fp16=reranker_config.bge_reranker_fp16
         )
     return _reranker_model
+
