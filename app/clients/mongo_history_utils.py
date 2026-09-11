@@ -36,7 +36,8 @@ class HistoryMongoTool:
             self.db_name = os.getenv("MONGO_DB_NAME")
 
             # 创建MongoDB客户端实例，建立与数据库的连接
-            self.client = MongoClient(self.mongo_url)
+            # serverSelectionTimeoutMS：远端Mongo不可达时快速失败，避免按驱动默认阻塞约30秒
+            self.client = MongoClient(self.mongo_url, serverSelectionTimeoutMS=5000)
             # 获取指定名称的数据库对象
             self.db = self.client[self.db_name]
             # 获取对话记录的集合（相当于关系型数据库的表），集合名：chat_message
