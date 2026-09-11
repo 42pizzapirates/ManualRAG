@@ -28,7 +28,7 @@ def step_1_item_names_validate(state:QueryGraphState):
     rewritten_query = state['rewritten_query'
                         ]
     if not item_names or len(item_names) == 0:
-        logger.errorg(f'item_names为空，无法进行向量检索')
+        logger.error(f'item_names为空，无法进行向量检索')
         raise ValueError(f'item_names为空，无法进行向量检索')
     if not rewritten_query:
         logger.warning(f'rewritten_query为空！给予origin_query')
@@ -82,7 +82,8 @@ def step_3_concat_vector_search(item_names,rewritten_query,predict_answer):
     return result_list[0] if len(result_list) > 0 else []
 
 
-def node_search_embedding(state):
+@node_log('node_search_embedding_hyde')
+def node_search_embedding_hyde(state):
     """
     节点功能：进行向量内容检索
     """
@@ -97,7 +98,7 @@ def node_search_embedding(state):
     result_list = step_3_concat_vector_search(item_names,rewritten_query,predict_answer)
     # 5. 返回结果即可
     add_done_task(state["session_id"], sys._getframe().f_code.co_name, state.get("is_stream"))
-    return {"embedding_chunks": result_list}
+    return {"hyde_embedding_chunks": result_list}
 
 if __name__ == "__main__":
     # 模拟测试数据
@@ -108,13 +109,13 @@ if __name__ == "__main__":
         "is_stream": False
     }
 
-    print("\n>>> 开始测试 node_search_embedding 节点...")
+    print("\n>>> 开始测试 node_search_embedding_hyde 节点...")
     try:
         # 执行节点函数
-        result = node_search_embedding(test_state)
+        result = node_search_embedding_hyde(test_state)
         logger.info(f"检索结果汇总：{result}")
         # 验证结果
-        chunks = result.get("embedding_chunks", [])
+        chunks = result.get("hyde_embedding_chunks", [])
         print(f"\n>>> 测试完成！检索到 {len(chunks)} 条结果")
         print(f"\n>>> 测试完成！检索到 {chunks} 条结果")
     except Exception as e:
