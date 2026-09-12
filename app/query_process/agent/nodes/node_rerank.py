@@ -104,8 +104,10 @@ def step_3_rerank(state,rerank_list,max_retry=3) -> list[float]:
             # 超出限制，调用llm进行总结摘要
             llm_client = get_llm_client()
             prompt = load_prompt('rerank_summary',text = item)
+            # content 必须是纯字符串或内容块列表（[{"type":"text","text":...}]），
+            # 传 [字符串] 会被序列化成 content:["..."]，服务端按内容块枚举解析直接 400
             message = [
-                HumanMessage(content=[prompt])
+                HumanMessage(content=prompt)
             ]
             item[1] = llm_client.invoke(message).content
 

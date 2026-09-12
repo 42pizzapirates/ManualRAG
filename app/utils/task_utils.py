@@ -176,6 +176,8 @@ def task_push_queue(task_id: str):
         "status": get_task_status(task_id),
         "done_list": get_done_task_list(task_id),
         "running_list": get_running_task_list(task_id),
+        # failed 是终态，前端要靠这个字段展示失败原因；成功时为空串
+        "error": get_task_result(task_id, "error"),
     })
 
 

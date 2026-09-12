@@ -136,13 +136,13 @@ def run_query_graph(session_id:str,query:str,is_stream:bool):
                                         is_stream = is_stream
                                        )
         )
-        query_graph.invoke(initial_state)
+        state = query_graph.invoke(initial_state)
         update_task_status(session_id,TASK_STATUS_COMPLETED,is_stream)
 
 
         # final事件最后推送，因为其会关闭本次传输流
-        # 图片URL暂未从检索结果中带出，先留空（原先写死的演示地址指向旧服务器和旧桶名，已移除）
-        image_urls = []
+        # 图片URL由 node_answer_output 的 step_5_extract_chunk_images 提取后写入 state
+        image_urls = state['image_urls']
         push_to_session(
             session_id,
             SSEEvent.FINAL,
@@ -154,6 +154,9 @@ def run_query_graph(session_id:str,query:str,is_stream:bool):
 
     except Exception as e:
         logger.exception(f'执行{session_id}对应查询问题：{query}，任务执行失败，错误信息：{e}')
+        # 先存失败原因再改状态：update_task_status 会立刻推 progress 事件，
+        # 事件里的 error 字段就是在这一刻从结果集里读走的
+        set_task_result(session_id,'error',str(e))
         update_task_status(session_id,TASK_STATUS_FAILED,is_stream)
 
 
@@ -178,11 +181,14 @@ async def query(query_request:QueryRequest,backgroundtasks:BackgroundTasks):
         # 获取结果
         answer = get_task_result(session_id,'answer')
         # 等待结束以后，返回结果
+        # status/error 让前端能区分「跑完」和「跑挂了」，否则失败时只会拿到空 answer
         return {
             'message':'处理完成！',
             'session_id':session_id,
             'answer':answer,
-            'done_list':get_done_task_list(session_id)
+            'done_list':get_done_task_list(session_id),
+            'status':get_task_status(session_id),
+            'error':get_task_result(session_id,'error')
         }
 
 # 接口四 流式返回任务结果
@@ -209,6 +215,8 @@ def get_history(session_id:str,limit:int=10):
             'text':r.get('text',''),
             'rewritten_query':r.get('rewritten_query',''),
             'item_names':r.get('item_names',[]),
+            # 刷新页面时前端靠这个字段渲染历史消息里的图片
+            'image_urls':r.get('image_urls') or [],
             'ts':r.get('ts')
         })
 

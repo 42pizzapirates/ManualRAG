@@ -747,8 +747,8 @@
 
         if (!isStream) {
           // 非流式：直接拿到结果
-          // data: { session_id, answer, done_list, error, message }
-          renderProgress(botMsgEl, data.done_list || [], [], 'completed');
+          // data: { session_id, answer, done_list, status, error, message }
+          renderProgress(botMsgEl, data.done_list || [], [], data.status || 'completed');
           finalizeBotAnswer(botMsgEl, data.answer, data.error, data.image_urls || []);
           sendBtn.disabled = false;
           return;
@@ -778,6 +778,14 @@
               const typing = botMsgEl.querySelector('.typing');
               if(typing) typing.remove();
               // 防止后端未发送 final 导致按钮一直禁用
+              sendBtn.disabled = false;
+            }else if(d && d.status === 'failed'){
+              // 失败是本次任务的终态，后端不会再推 final，必须在这里收尾，
+              // 否则“...”等待态、禁用的发送按钮和这条 SSE 连接都会一直留着
+              const typing = botMsgEl.querySelector('.typing');
+              if(typing) typing.remove();
+              finalizeBotAnswer(botMsgEl, '', d.error || '任务执行失败', []);
+              es.close();
               sendBtn.disabled = false;
             }
           }catch(_){}

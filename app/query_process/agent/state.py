@@ -27,6 +27,7 @@ class QueryGraphState(TypedDict):
     rewritten_query: str  # 改写后的问题
     history: list  # 历史对话记录
     is_stream: bool  # 是否流式输出标记
+    image_urls: List[str]  # 生成的图片URL列表
 
 
 # ========================
@@ -45,7 +46,8 @@ query_graph_default_state: QueryGraphState = {
     "item_names": [],
     "rewritten_query": "",
     "history": [],
-    "is_stream": False
+    "is_stream": False,
+    "image_urls": []
 }
 
 
