@@ -205,13 +205,14 @@ def get_recent_messages(session_id: str, limit: int = 10) -> List[Dict[str, Any]
         # 构造查询条件：仅查询指定session_id的记录
         query = {"session_id": session_id}
 
-        # 执行查询：按时间戳升序排序，限制返回条数
+        # 执行查询：先按时间戳降序取「最近 limit 条」，再翻转回时间正序
         # find(query)：获取符合条件的游标（惰性加载，不立即查询）
-        # sort("ts", ASCENDING)：按ts字段升序（从旧到新），适配LLM上下文顺序
-        # limit(limit)：限制返回的最大条数
+        # sort("ts", DESCENDING)：必须降序，否则 limit 截到的是最旧的 N 条而不是最近的 N 条
+        # reverse()：调用方（前端渲染、LLM 上下文）要的都是从旧到新，契约见函数文档
         cursor = mongo_tool.chat_message.find(query).sort("ts", DESCENDING).limit(limit)
         # 将游标转为列表，触发实际数据库查询，获取所有符合条件的文档
         messages = list(cursor)
+        messages.reverse()
         # 返回查询结果列表
         return messages
     except Exception as e:
