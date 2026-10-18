@@ -4,11 +4,11 @@
 
 面向产品手册的垂直领域 RAG 系统。先确认用户所问的产品型号，再检索对应手册，基于命中内容生成答案并回传配图。
 
-![Python 3.12+](https://badgen.net/badge/Python/3.12%2B/3776AB?icon=python&labelColor=555&scale=1.3)
-![FastAPI 0.135+](https://badgen.net/badge/FastAPI/0.135%2B/009688?icon=fastapi&labelColor=555&scale=1.3)
-![LangGraph 1.1+](https://badgen.net/badge/LangGraph/1.1%2B/1C3C3C?labelColor=555&scale=1.3)
-![Milvus 3.0](https://badgen.net/badge/Milvus/3.0/00A1EA?labelColor=555&scale=1.3)
-![Docker Compose](https://badgen.net/badge/Docker/Compose/2496ED?icon=docker&labelColor=555&scale=1.3)
+![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.135%2B-009688?logo=fastapi&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-1.1%2B-1C3C3C)
+![Milvus](https://img.shields.io/badge/Milvus-3.0-00A1EA)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
 </div>
 
