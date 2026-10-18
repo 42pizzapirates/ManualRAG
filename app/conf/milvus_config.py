@@ -1,25 +1,18 @@
-# 导入核心依赖（和其他配置类共用，只需导入一次）
 from dataclasses import dataclass
 import os
 from dotenv import load_dotenv
 
-# 提前加载.env配置文件（全局执行一次即可，无需重复写）
 load_dotenv()
 
-# ===================== 其他配置类（LLM/Embedding）可放在上方，保持原有代码不变 =====================
-# ... 你的LLMConfig、EmbeddingConfig代码 ...
-
-# 定义Milvus向量数据库配置类
 @dataclass
 class MilvusConfig:
-    milvus_url: str          # Milvus服务端连接地址
-    milvus_user: str         # Milvus认证用户名（服务端开启authorizationEnabled后必填）
-    milvus_password: str     # Milvus认证密码（同上）
-    chunks_collection: str   # 存储切片的集合名称
-    entity_name_collection: str  # 预留-实体名称集合
-    item_name_collection: str    # 存储文档对应实体类的集合名称
+    milvus_url: str
+    milvus_user: str
+    milvus_password: str
+    chunks_collection: str
+    entity_name_collection: str
+    item_name_collection: str
 
-# 实例化Milvus配置对象（和其他配置对象命名风格统一）
 milvus_config = MilvusConfig(
     milvus_url=os.getenv("MILVUS_URL"),
     milvus_user=os.getenv("MILVUS_USER"),

@@ -14,8 +14,7 @@ class SSEEvent:
     CLOSE = "__close__"     # 关闭连接信号
 
 
-# 全局 SSE 会话队列存储
-# Key: session_id, Value: queue.Queue
+# session_id -> 事件队列
 _session_stream: Dict[str, queue.Queue] = {}
 
 def get_sse_queue(session_id: str) -> Optional["queue.Queue"]:
@@ -35,59 +34,46 @@ def remove_sse_queue(session_id: str):
     _session_stream.pop(session_id, None)
 
 def _sse_pack(event: str, data: Dict[str, Any]) -> str:
-    """打包 SSE 消息格式"""
+    """序列化为 SSE 帧。"""
     payload = json.dumps(data, ensure_ascii=False)
-    # print(f"[SSE] Packing event: {event}, payload: {payload[:50]}...")
     return f"event: {event}\ndata: {payload}\n\n"
 
 def push_to_session(session_id: str, event: str, data: Dict[str, Any]):
-    """
-    通过 session_id 推送事件
-    """
+    """向会话队列推送事件；队列不存在时记录告警。"""
     stream_queue = get_sse_queue(session_id)
     if stream_queue:
-        # print(f"[SSE] Pushing to session {session_id}: {event}")
         stream_queue.put({"event": event, "data": data})
     else:
         print(f"[SSE] Warning: No queue found for session {session_id} when pushing {event}")
 
 async def sse_generator(session_id: str, request: Request):
-    """
-    SSE 生成器，用于 FastAPI 的 StreamingResponse
-    """
+    """为 StreamingResponse 持续产出 SSE 事件，断开时清理队列。"""
     print(f"[SSE] Generator started for session: {session_id}")
     stream_queue = get_sse_queue(session_id)
     if stream_queue is None:
-        # 如果没有对应的队列，直接结束
         print(f"[SSE] Error: Queue not found for session {session_id}. Available sessions: {list(_session_stream.keys())}")
         return
 
     loop = asyncio.get_running_loop()
     try:
-        # 发送连接建立信号
         print(f"[SSE] Sending ready signal for {session_id}")
         yield _sse_pack("ready", {})
 
         while True:
-            # 若客户端断开，尽快退出
             if await request.is_disconnected():
                 print(f"[SSE] Client disconnected: {session_id}")
                 print("-----------------------断开连接--------------------")
                 break
 
             try:
-                # 使用 run_in_executor 避免阻塞 async 事件循环
+                # 队列阻塞读取放到线程池，避免阻塞事件循环
                 msg = await loop.run_in_executor(None, stream_queue.get, True, 1.0)
             except queue.Empty:
-                # print(f"[SSE] Queue empty for {session_id}, waiting...")
                 continue
 
             event = msg.get("event")
             data = msg.get("data")
             
-            # print(f"[SSE] Yielding event {event} for {session_id}")
-
-            # 特殊关闭事件
             if event == "__close__":
                 print(f"[SSE] Closing signal received for {session_id}")
                 break
@@ -95,13 +81,11 @@ async def sse_generator(session_id: str, request: Request):
             yield _sse_pack(event, data)
     except (asyncio.CancelledError, ConnectionResetError, BrokenPipeError):
         print(f"[SSE] Client disconnected (Cancelled/Reset/Pipe): {session_id}")
-        # 生成器被取消/对端断开：静默退出
         return
     except Exception as e:
         print(f"[SSE] Exception in generator for {session_id}: {e}")
     finally:
         print(f"[SSE] Generator finished for {session_id}")
-        # 清理资源
         remove_sse_queue(session_id)
 
 

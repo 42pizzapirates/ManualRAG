@@ -8,11 +8,7 @@ from app.query_process.agent.state import QueryGraphState
 
 @node_log("step_1_data_validates")
 def step_1_data_validates(state:QueryGraphState):
-    """
-    获取参数并且校验
-    :param state:
-    :return:
-    """
+    """取出两路召回结果。"""
 
     embedding_chunks = state.get('embedding_chunks',[])
     hyde_embedding_chunks = state.get('hyde_embedding_chunks',[])
@@ -22,39 +18,20 @@ def step_1_data_validates(state:QueryGraphState):
 
 @node_log('step_2_rrf_list')
 def step_2_rrf_list(embedding_chunks,hyde_embedding_chunks,k:int=60,top:int=5,weights=(1.0,1.0)):
-    """
-    进行多路融合排序 , 同源,启动算法!
-    本次算法 = 1.0 / k + rank * weight
-    :param param_list: [([1 {id:xx,distance:xx,entity:{chunk_id}},2,3],1.0),([1,2,3],1.0),([],1.0)]
-    :param k 平滑参数,用于削弱排名的过大影响
-    :param top 最终的获取数量
-    :return: [entity,entity....]
-    """
-    # 1. 处理集合参数（添加权重）
+    """按 RRF 融合两路召回，score += weight / (k + rank)，返回前 top 个实体。"""
     param_list = [(embedding_chunks,weights[0]),(hyde_embedding_chunks,weights[1])]
 
-    # 2. 定义字典（对应chunk_id的累计得分和entity字段数据）
-    score_dict = {} # chunk_id:score
-    entity_dict ={} # chunk_id:entity
+    score_dict = {}
+    entity_dict = {}
 
-    # 3. 循环统计每一路得分
     for chunks,weight in param_list:
-        # 3.1 循环单路得分
         for rank,chunk in enumerate(chunks,start=1):
-            # rank chunks中数据已排序，直接取index
-            # chunk的数据结构：{id:..,distance:...,entity:...}
-            
-            # 3.2 统计每个chunk_id的得分和entity
             chunk_id = chunk.get('id') or chunk['entity']['chunk_id']
 
             score_dict[chunk_id] = score_dict.get(chunk_id,0.0) + (1.0/(rank+k))*weight
-            # 存储chunk_id -> entity
-            # 每次都赋值,下一次覆盖上一次!
-            # entity_dict[chunk_id] = chunk.get("entity",{})
-            # 如果没有值,才赋值! 第一次已经赋值了,后面就不会更新了
+            # 同一 chunk 在两路结果中重复出现时，保留第一次的 entity
             entity_dict.setdefault(chunk_id,chunk.get('entity',{}))
 
-    # 4. 组合数据（按累计得分降序排序）
     rerank_list = sorted(score_dict.items(),key=lambda x:x[1],reverse=True)
     final_entity_list = [entity_dict[chunk_id] for chunk_id,_ in rerank_list][:top]
     return final_entity_list
@@ -62,13 +39,11 @@ def step_2_rrf_list(embedding_chunks,hyde_embedding_chunks,k:int=60,top:int=5,we
 
 @node_log('node_rrf')
 def node_rrf(state:QueryGraphState):
-    # 1. 任务日志管理
+    """融合向量召回与 HyDE 召回，写入 state['rrf_chunks']。"""
     add_running_task(state['session_id'],'node_rrf')
 
-    # 2. 数据校验
     embedding_chunks,hyde_embedding_chunks = step_1_data_validates(state)
 
-    # 3. rrf重排序（排名+权重）
     final_entity_list = step_2_rrf_list(embedding_chunks,hyde_embedding_chunks)
     state['rrf_chunks'] = final_entity_list
 
@@ -79,9 +54,6 @@ def node_rrf(state:QueryGraphState):
 
 
 
-# ================================
-# 本地测试入口
-# ================================
 if __name__ == "__main__":
     print("\n" + "=" * 50)
     print(">>> 启动 node_rrf 本地测试")

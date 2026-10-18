@@ -14,28 +14,16 @@ from app.query_process.agent.state import QueryGraphState
 
 load_dotenv(override=True)
 
-# -----------------------------
-# Rerank / TopK 全局常量（不从 state 读取）
-# -----------------------------
-# 动态 TopK 硬上限：最多取前 N 条（<=10）
+# 动态 TopK 的上下限与断崖截断阈值
 RERANK_MAX_TOPK: int = 10
-# 最小 TopK：至少保留前 N 条（>=1，且 <= RERANK_MAX_TOPK）
 RERANK_MIN_TOPK: int = 1
-# 断崖阈值（相对）：分数相对前一条降低超过该比例即截断
 RERANK_GAP_RATIO: float = 0.5
-# 断崖阈值（绝对）：与上一条分差超过该值即截断（分数已sigmoid归一化到0~1）
 RERANK_GAP_ABS: float = 0.3
 
 
-
-# 1. 数据校验
 @step_log('step_1_data_validates')
 def step_1_data_validates(state: QueryGraphState):
-    """
-    获取rrf_node粗排序的结果以及mcp网络搜索结果
-    :param state:
-    :return:
-    """
+    """取出粗排结果与联网搜索结果。"""
     web_search_docs = state.get("web_search_docs", [])
     rrf_chunks = state.get("rrf_chunks", [])
 
@@ -43,16 +31,9 @@ def step_1_data_validates(state: QueryGraphState):
     return web_search_docs, rrf_chunks
 
 
-# 2.合并两路数据（[[问题, 答案, 原始文档],...]）
 @step_log('step_2_merge_data')
 def step_2_merge_data(state,web_search_docs, rrf_chunks) -> list[dict]:
-    """
-    进行两路数据融合! 统一格式方便后续数据处理!
-    {title: , text: content or snippet , url : mcp专属 , type: milvus or web , score : 0.0}
-    :param rrf_chunks:
-    :param web_search_docs:
-    :return: [{title: , text: content or snippet , url : mcp专属 , type: milvus or web , score : 0.0}]
-    """
+    """把向量检索与联网结果归一为统一的文档结构。"""
 
     rewritten_query = state.get("rewritten_query", "")
 
@@ -77,35 +58,26 @@ def step_2_merge_data(state,web_search_docs, rrf_chunks) -> list[dict]:
     logger.info(f'完成两路数据统一格式处理，rrf路原数据条数{len(rrf_chunks)},web路原数据条数{len(web_search_docs)}')
     return rerank_list
 
-# 定义计算token函数（序列长度）
 def count_qwen_tokens_sdk(text: str) -> int:
+    """返回 Qwen 分词器下的 token 数。"""
     return len(dashscope.tokenizers.get_tokenizer("qwen-flash").encode(text))
 
-# 3. 使用reranker模型进行问题和答案的重排序（打分）
 @step_log('step_3_rerank')
 def step_3_rerank(state,rerank_list,max_retry=3) -> list[float]:
-    """
-    对[问题, 答案]逐条打分，并回填分数、按分数降序排序
-    :param max_retry: 单条超长时最多摘要几次，避免摘要后仍超长导致死循环
-    :return: 带score字段且已按score降序排序的rerank_list
-    """
+    """对每条候选文档打分，超长时先摘要，返回按分数降序排列的结果。"""
 
-    # 1.获取重写的问题
     rewritten_query = state.get('rewritten_query') or state.get('original_query')
 
-    # 2. 拼接reranker模型输入:[[问题，答案],...]
     invoke_list = [[rewritten_query,chunk.get('text')] for chunk in rerank_list]
 
-    # 3. 校验每条的token数是否超出模型的最大长度限制（超长则调用llm摘要压缩）
+    # 单条超过 512 token 会被 reranker 拒绝，先压缩再打分
     for item in invoke_list:
         token_count = count_qwen_tokens_sdk(str(item[0]) + str(item[1]))
         retry = 0
         while token_count > 512 and retry < max_retry:
-            # 超出限制，调用llm进行总结摘要
             llm_client = get_llm_client()
             prompt = load_prompt('rerank_summary',text = item)
-            # content 必须是纯字符串或内容块列表（[{"type":"text","text":...}]），
-            # 传 [字符串] 会被序列化成 content:["..."]，服务端按内容块枚举解析直接 400
+            # content 传 [字符串] 会被序列化为内容块数组并被服务端拒绝，必须是纯字符串
             message = [
                 HumanMessage(content=prompt)
             ]
@@ -116,37 +88,29 @@ def step_3_rerank(state,rerank_list,max_retry=3) -> list[float]:
         if token_count > 512:
             logger.warning(f"摘要{max_retry}次后token数仍为{token_count}，按当前内容直接打分")
 
-    # 4. 调用rerank模型获取分数列表
     rerank_model = get_reranker_model()
-    scores_list = rerank_model.compute_score(invoke_list,normalize=True) # 设置归一化用于取topk分数
+    scores_list = rerank_model.compute_score(invoke_list,normalize=True)
 
-    # 将score封装到对应原rerank_list的chunk字段里
     for chunk,score in zip(rerank_list,scores_list):
-        chunk['score'] = round(score,4) # 四舍五入，去小数点后四位
+        chunk['score'] = round(score,4)
 
-    # 按分数排序
     rerank_list.sort(key=lambda x: x['score'], reverse=True)
 
     return rerank_list
        
 @step_log('step_4_topk_chunk')
 def step_4_topk_chunk(chunk_list_score_sorted):
-    """
-       min_topk  - topk截取数据  -  max_topk
-    :param chunk_list_score_sorted:
-    :return:
-    """
-    # 1. 接收参数
-    min_topk = RERANK_MIN_TOPK #最少chunk数
-    max_topk = RERANK_MAX_TOPK #最大chunk数
-    max_gap_ratio = RERANK_GAP_RATIO #相对前一个分数降低百分比
-    max_gap = RERANK_GAP_ABS #分差绝对值
+    """按分数断崖动态截断，返回最终进入答案生成的文档。"""
 
-    # max_topk不能超过待选list长度，否则无意义
+    min_topk = RERANK_MIN_TOPK
+    max_topk = RERANK_MAX_TOPK
+    max_gap_ratio = RERANK_GAP_RATIO
+    max_gap = RERANK_GAP_ABS
+
     topk = min(max_topk,len(chunk_list_score_sorted))
 
     if topk > min_topk:
-        # 上界用topk而不是max_topk：topk已收敛到列表长度，否则列表不足max_topk条时会越界
+        # 上界必须用 topk，候选不足 max_topk 时直接按 max_topk 遍历会越界
         for i in range(min_topk-1,topk-1):
             score_1 = chunk_list_score_sorted[i].get('score',0.0)
             score_2 = chunk_list_score_sorted[i+1].get('score',0.0)
@@ -155,26 +119,20 @@ def step_4_topk_chunk(chunk_list_score_sorted):
             if abs_score > max_gap or gap_ratio > max_gap_ratio:
                 topk = i+1
                 break
-    # else:
-        # 若 max_topk < min_topk ,即 候选列表长度 < min_topk，直接返回整个列表
     return chunk_list_score_sorted[:topk]
 
 
 @node_log('node_rerank')
 def node_rerank(state: QueryGraphState) -> QueryGraphState:
-    # 1. 任务日志管理
+    """合并多路召回结果，重排后写入 state['reranked_docs']。"""
     add_running_task(state["session_id"], sys._getframe().f_code.co_name, state.get("is_stream"))
 
-    # 2. 数据校验
     web_search_docs, rrf_chunks = step_1_data_validates(state)
 
-    # 3. 合并两路数据
     rerank_list = step_2_merge_data(state,web_search_docs, rrf_chunks)
 
-    # 4. 使用reranker模型进行问题和答案的重排序（打分）,并组装按分数排序的chunk_list,
     chunk_list_score_sorted = step_3_rerank(state,rerank_list,max_retry=4)
 
-    # 5. 取topk分数的chunk作为最终的返回结果
     topk_chunk_list = step_4_topk_chunk(chunk_list_score_sorted)
     state['reranked_docs'] = topk_chunk_list
 
@@ -182,9 +140,6 @@ def node_rerank(state: QueryGraphState) -> QueryGraphState:
     return state
 
 
-# ================================
-# 本地测试入口
-# ================================
 if __name__ == "__main__":
     print("\n" + "=" * 50)
     print(">>> 启动 node_rerank 本地测试")
@@ -192,34 +147,26 @@ if __name__ == "__main__":
 
 
 
-    # for index in range(1,5):
-    #     print(index)
-
-    # 1. 模拟数据
-    # 1.1 RRF 本地文档数据
-    # todo: 注意
     mock_rrf_chunks = [
         {"chunk_id": "local_1", "content": "RRF是一种倒数排名融合算法", "title": "算法介绍"},
         {"chunk_id": "local_2", "content": "BGE是一个强大的重排序模型", "title": "模型介绍"},
-        {"chunk_id": "local_3", "content": "无关的测试文档内容", "title": "测试文档"}  # 预期低分
+        {"chunk_id": "local_3", "content": "无关的测试文档内容", "title": "测试文档"}
     ]
 
-    # 1.2 MCP 联网搜索数据
     mock_web_docs = [
         {"title": "Rerank技术详解", "url": "http://web.com/1", "snippet": "Rerank即重排序，常用于RAG系统的第二阶段"},
-        {"title": "无关网页", "url": "http://web.com/2", "snippet": "今天天气不错，适合出去游玩"}  # 预期低分
+        {"title": "无关网页", "url": "http://web.com/2", "snippet": "今天天气不错，适合出去游玩"}
     ]
 
     mock_state = {
         "session_id": "test_rerank_session",
-        "rewritten_query": "什么是RRF和Rerank？",  # 查询意图：想了解这两个算法
+        "rewritten_query": "什么是RRF和Rerank？",
         "rrf_chunks": mock_rrf_chunks,
         "web_search_docs": mock_web_docs,
         "is_stream": False
     }
 
     try:
-        # 运行节点
         result = node_rerank(mock_state)
         reranked = result.get("reranked_docs", [])
 
@@ -232,10 +179,6 @@ if __name__ == "__main__":
         print("最终排名:")
         for i, doc in enumerate(reranked, 1):
             print(f"Rank {i}: Source={doc.get('type')}, Score={doc.get('score'):.4f}, Text={doc.get('text')[:20]}...")
-
-        # 验证逻辑：
-        # 预期 "local_1", "local_2", "Rerank技术详解" 分数较高
-        # 预期 "local_3", "无关网页" 分数较低，可能被截断或排在最后
 
         top1_score = reranked[0].get("score")
         if top1_score > 0:

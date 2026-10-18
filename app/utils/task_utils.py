@@ -1,20 +1,12 @@
 from typing import Dict, List
 from .sse_utils import push_to_session
 
-# ---------------------------
-# 内存态任务追踪（单进程）
-# ---------------------------
-# key: task_id
-# value: 节点名列表（原始英文/节点ID）
+# 进程内任务追踪，仅适用于单实例部署
 _tasks_running_list: Dict[str, List[str]] = {}
 _tasks_done_list: Dict[str, List[str]] = {}
 
-# key: task_id
-# value: status 字符串（如 pending/processing/completed/failed）
 _tasks_status: Dict[str, str] = {}
 
-# key: task_id
-# value: 任务结果（例如 query 的 answer）
 _tasks_result: Dict[str, Dict[str, str]] = {}
 
 TASK_STATUS_PENDING = "pending"
@@ -22,8 +14,7 @@ TASK_STATUS_PROCESSING = "processing"
 TASK_STATUS_COMPLETED = "completed"
 TASK_STATUS_FAILED = "failed"
 
-# 节点名 -> 中文名映射（用于前端展示）
-# 说明：这里的 key 应与 LangGraph 的 add_node("xxx", ...) 中的节点名一致。
+# 节点名到展示名的映射，key 必须与 add_node 注册名一致
 _NODE_NAME_TO_CN: Dict[str, str] = {
     "upload_file": "开始上传文件",
     "node_entry": "检查文件",
@@ -36,7 +27,6 @@ _NODE_NAME_TO_CN: Dict[str, str] = {
     "node_import_milvus": "导入向量库",
     "__end__": "处理完成",
     "END": "处理完成",
-    # --- Query 流程节点（kb/query_process/main_graph.py）---
     "node_item_name_confirm": "确认问题产品",
     "node_answer_output": "生成答案",
     "node_rerank": "重排序",
@@ -66,16 +56,9 @@ def _to_cn(node_name: str) -> str:
 
 
 def add_running_task(task_id: str, node_name: str, is_stream: bool = False) -> None:
-    """
-    添加“正在运行”的节点任务。
-
-    参数：
-    - task_id: 任务ID
-    - node_name: 节点名称(节点ID)
-    """
+    """记录节点开始执行；流式模式下同时推送进度。"""
     _ensure_task(task_id)
     running = _tasks_running_list[task_id]
-    # 避免重复追加
     if node_name not in running:
         running.append(node_name)
 
@@ -84,22 +67,12 @@ def add_running_task(task_id: str, node_name: str, is_stream: bool = False) -> N
 
 
 def add_done_task(task_id: str, node_name: str, is_stream: bool = False) -> None:
-    """
-    添加“已完成”的节点任务。
-
-    注意：添加已完成任务时，会把同名的“正在运行”任务删除。
-
-    参数：
-    - task_id: 任务ID
-    - node_name: 节点名称(节点ID)
-    """
+    """记录节点完成：从运行中移除，并按顺序追加到已完成列表。"""
     _ensure_task(task_id)
 
-    # 1) 从 running 中移除同名节点（可能出现重复，移除所有）
     running = _tasks_running_list[task_id]
     _tasks_running_list[task_id] = [n for n in running if n != node_name]
 
-    # 2) 追加到 done（保持完成顺序），避免重复
     done = _tasks_done_list[task_id]
     if node_name not in done:
         done.append(node_name)
@@ -109,80 +82,56 @@ def add_done_task(task_id: str, node_name: str, is_stream: bool = False) -> None
 
 
 def set_task_result(task_id: str, key: str, value: str) -> None:
-    """
-    存储任务结果字段（如 answer / error）。
-    """
+    """写入任务结果字段，如 answer / error。"""
     _ensure_task(task_id)
     _tasks_result[task_id][key] = value
 
 
 def get_task_result(task_id: str, key: str, default: str = "") -> str:
-    """
-    获取任务结果字段（如 answer / error）。
-    """
+    """读取任务结果字段，缺失时返回 default。"""
     _ensure_task(task_id)
     return _tasks_result.get(task_id, {}).get(key, default)
 
 
 def get_task_status(task_id: str) -> str:
-    """
-    获取当前任务状态。
-
-    参数：
-    - task_id: 任务ID
-
-    返回：
-    - str: 状态名称；如果未设置过则返回空字符串
-    """
+    """返回任务状态；未设置过时为空字符串。"""
     return _tasks_status.get(task_id, "")
 
 
 def get_done_task_list(task_id: str) -> List[str]:
-    """
-    获取已完成节点列表（中文展示）。
-
-
-    """
+    """返回已完成节点的中文展示名。"""
     _ensure_task(task_id)
     done = _tasks_done_list.get(task_id, [])
     return [_to_cn(n) for n in done]
 
 
 def get_running_task_list(task_id: str) -> List[str]:
-    """
-    获取正在运行节点列表（中文展示）。
-
-    """
+    """返回运行中节点的中文展示名。"""
     _ensure_task(task_id)
     running = _tasks_running_list.get(task_id, [])
     return [_to_cn(n) for n in running]
 
 
 def update_task_status(task_id: str, status_name: str, push_queue: bool = False) -> None:
-    """
-    更新任务状态。
-
-    参数：
-    - task_id: 任务ID
-    - status_name: 状态名称（字符串）
-    """
+    """更新任务状态，必要时向 SSE 队列推送。"""
     _tasks_status[task_id] = status_name
     if push_queue:
         task_push_queue(task_id)
 
 
 def task_push_queue(task_id: str):
+    """把当前进度作为 progress 事件推送给前端。"""
     push_to_session(task_id, "progress", {
         "status": get_task_status(task_id),
         "done_list": get_done_task_list(task_id),
         "running_list": get_running_task_list(task_id),
-        # failed 是终态，前端要靠这个字段展示失败原因；成功时为空串
+        # failed 是终态；成功时为空串
         "error": get_task_result(task_id, "error"),
     })
 
 
-#
 def clear_task(task_id: str):
+    """清空任务的全部内存状态。"""
     _tasks_running_list.pop(task_id, None)
     _tasks_done_list.pop(task_id, None)
     _tasks_status.pop(task_id, None)
